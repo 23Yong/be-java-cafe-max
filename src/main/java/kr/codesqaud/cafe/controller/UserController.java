@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 
+import kr.codesqaud.cafe.common.resolver.Login;
 import kr.codesqaud.cafe.controller.dto.req.JoinRequest;
 import kr.codesqaud.cafe.controller.dto.req.ProfileEditRequest;
 import kr.codesqaud.cafe.service.UserService;
@@ -40,13 +41,19 @@ public class UserController {
 	}
 
 	@GetMapping("/users/{userId}/form")
-	public String showProfileEditPage(@PathVariable final String userId, final Model model) {
+	public String showProfileEditPage(@PathVariable final String userId,
+		@Login final String sessionUserId,
+		final Model model) {
+		userService.validateHasAuthorization(sessionUserId, userId);
 		model.addAttribute("userId", userId);
 		return "user/edit_form";
 	}
 
 	@PutMapping("/users/{userId}")
-	public String editUserProfile(@PathVariable final String userId, @ModelAttribute final ProfileEditRequest request) {
+	public String editUserProfile(@PathVariable final String userId,
+		@Login final String sessionUserId,
+		@ModelAttribute final ProfileEditRequest request) {
+		userService.validateHasAuthorization(sessionUserId, userId);
 		userService.editUserProfile(userId, request);
 		return "redirect:/users";
 	}

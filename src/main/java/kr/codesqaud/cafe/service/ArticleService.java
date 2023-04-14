@@ -7,8 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import kr.codesqaud.cafe.controller.dto.ArticleDto;
-import kr.codesqaud.cafe.controller.dto.req.PostingRequest;
+import kr.codesqaud.cafe.controller.dto.req.ArticleEditRequest;
 import kr.codesqaud.cafe.domain.article.Article;
+import kr.codesqaud.cafe.exception.NoAuthorizationException;
 import kr.codesqaud.cafe.exception.NotFoundException;
 import kr.codesqaud.cafe.repository.ArticleRepository;
 
@@ -23,8 +24,8 @@ public class ArticleService {
 	}
 
 	@Transactional
-	public void posting(final PostingRequest request) {
-		articleRepository.save(Article.from(request));
+	public void posting(final ArticleDto articleDto) {
+		articleRepository.save(articleDto.toEntity());
 	}
 
 	public List<ArticleDto> getArticles() {
@@ -38,5 +39,27 @@ public class ArticleService {
 		return articleRepository.findById(id)
 			.map(ArticleDto::from)
 			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", id)));
+	}
+
+	public void validateHasAuthorization(final Long articleId, final String userId) {
+		articleRepository.findById(articleId)
+			.filter(article -> article.getWriter().equals(userId))
+			.orElseThrow(NoAuthorizationException::new);
+	}
+
+	@Transactional
+	public void editArticle(final Long articleId, final ArticleEditRequest request) {
+		Article savedArticle = articleRepository.findById(articleId)
+			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", articleId)));
+
+		savedArticle.editArticle(request.getTitle(), request.getContent());
+		articleRepository.update(savedArticle);
+	}
+
+	@Transactional
+	public void deleteArticle(final Long articleId) {
+		articleRepository.findById(articleId)
+			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", articleId)));
+		articleRepository.deleteById(articleId);
 	}
 }
