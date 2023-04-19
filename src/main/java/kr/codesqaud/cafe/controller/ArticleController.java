@@ -1,6 +1,6 @@
 package kr.codesqaud.cafe.controller;
 
-import java.time.LocalDateTime;
+import static kr.codesqaud.cafe.common.consts.SessionConst.SESSION_USER;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttribute;
 
-import kr.codesqaud.cafe.common.resolver.Login;
-import kr.codesqaud.cafe.controller.dto.ArticleDto;
+import kr.codesqaud.cafe.controller.dto.ArticleDetails;
 import kr.codesqaud.cafe.controller.dto.req.ArticleEditRequest;
 import kr.codesqaud.cafe.controller.dto.req.PostingRequest;
 import kr.codesqaud.cafe.service.ArticleService;
@@ -29,21 +29,25 @@ public class ArticleController {
 	}
 
 	@PostMapping
-	public String posting(@ModelAttribute final PostingRequest request, @Login final String userId) {
-		articleService.posting(
-			new ArticleDto(null, userId, request.getTitle(), request.getContents(), LocalDateTime.now()));
+	public String post(@ModelAttribute final PostingRequest request,
+					   @SessionAttribute(SESSION_USER) final String userId) {
+		articleService.post(request, userId);
 		return "redirect:/";
 	}
 
 	@GetMapping("/{articleId}")
 	public String showArticleDetails(@PathVariable final Long articleId, final Model model) {
-		model.addAttribute("article", articleService.findById(articleId));
+		ArticleDetails articleDetails = articleService.getArticleDetails(articleId);
+		model.addAttribute("article", articleDetails.getArticleRequest());
+		model.addAttribute("articleCommentCount", articleDetails.getArticleCommentRequest().size());
+		model.addAttribute("articleComments", articleDetails.getArticleCommentRequest());
 		return "qna/show";
 	}
 
 	@GetMapping("/{articleId}/form")
 	public String showArticleEditPage(@PathVariable final Long articleId,
-		@Login final String userId, final Model model) {
+									  @SessionAttribute(SESSION_USER) final String userId,
+									  final Model model) {
 		articleService.validateHasAuthorization(articleId, userId);
 		model.addAttribute("articleId", articleId);
 		return "qna/edit_form";
@@ -56,7 +60,8 @@ public class ArticleController {
 	}
 
 	@DeleteMapping("/{articleId}")
-	public String deleteArticle(@PathVariable final Long articleId, @Login final String userId) {
+	public String deleteArticle(@PathVariable final Long articleId,
+								@SessionAttribute(SESSION_USER) final String userId) {
 		articleService.validateHasAuthorization(articleId, userId);
 		articleService.deleteArticle(articleId);
 		return "redirect:/";

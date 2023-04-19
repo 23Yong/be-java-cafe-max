@@ -1,19 +1,21 @@
 package kr.codesqaud.cafe.config;
 
-import java.util.List;
-
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import kr.codesqaud.cafe.common.interceptor.LoginInterceptor;
-import kr.codesqaud.cafe.common.resolver.LoginUserArgumentResolver;
 
 @Configuration(proxyBeanMethods = false)
 public class MvcConfig implements WebMvcConfigurer {
+
+	private final LoginInterceptor loginInterceptor;
+
+	public MvcConfig(LoginInterceptor loginInterceptor) {
+		this.loginInterceptor = loginInterceptor;
+	}
 
 	@Override
 	public void addViewControllers(ViewControllerRegistry registry) {
@@ -25,15 +27,10 @@ public class MvcConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
-		String[] authorizePatterns = new String[] {"/articles/**", "/question/**"};
+		String[] authorizePatterns = new String[] {"/articles/**", "/question/**", "/comments/**"};
 
 		registry
-			.addInterceptor(new LoginInterceptor())
+			.addInterceptor(loginInterceptor)
 			.addPathPatterns(authorizePatterns);
-	}
-
-	@Override
-	public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-		resolvers.add(new LoginUserArgumentResolver());
 	}
 }

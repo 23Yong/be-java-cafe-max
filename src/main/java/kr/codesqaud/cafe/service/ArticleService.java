@@ -6,11 +6,18 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import kr.codesqaud.cafe.controller.dto.ArticleDto;
+import kr.codesqaud.cafe.controller.dto.ArticleCommentRequest;
+import kr.codesqaud.cafe.controller.dto.ArticleDetails;
+import kr.codesqaud.cafe.controller.dto.ArticleRequest;
+import kr.codesqaud.cafe.controller.dto.ArticleWithCommentCount;
 import kr.codesqaud.cafe.controller.dto.req.ArticleEditRequest;
+import kr.codesqaud.cafe.controller.dto.req.PostingRequest;
 import kr.codesqaud.cafe.domain.article.Article;
+import kr.codesqaud.cafe.domain.articlecomment.ArticleComment;
+import kr.codesqaud.cafe.exception.InvalidOperationException;
 import kr.codesqaud.cafe.exception.NoAuthorizationException;
 import kr.codesqaud.cafe.exception.NotFoundException;
+import kr.codesqaud.cafe.repository.ArticleCommentRepository;
 import kr.codesqaud.cafe.repository.ArticleRepository;
 
 @Transactional(readOnly = true)
@@ -18,32 +25,36 @@ import kr.codesqaud.cafe.repository.ArticleRepository;
 public class ArticleService {
 
 	private final ArticleRepository articleRepository;
+	private final ArticleCommentRepository articleCommentRepository;
 
-	public ArticleService(ArticleRepository articleRepository) {
+	public ArticleService(ArticleRepository articleRepository, ArticleCommentRepository articleCommentRepository) {
 		this.articleRepository = articleRepository;
+		this.articleCommentRepository = articleCommentRepository;
 	}
 
 	@Transactional
-	public void posting(final ArticleDto articleDto) {
-		articleRepository.save(articleDto.toEntity());
+	public void post(final PostingRequest request, final String userId) {
+		articleRepository.save(Article.of(userId, request.getTitle(), request.getContents()));
 	}
 
-	public List<ArticleDto> getArticles() {
-		return articleRepository.findAll()
-			.stream()
-			.map(ArticleDto::from)
-			.collect(Collectors.toUnmodifiableList());
-	}
-
-	public ArticleDto findById(final Long id) {
-		return articleRepository.findById(id)
-			.map(ArticleDto::from)
+	public ArticleDetails getArticleDetails(final Long id) {
+		Article article = articleRepository.findById(id)
 			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", id)));
+		List<ArticleComment> articleComments = articleCommentRepository.findAllByArticleId(id);
+		return new ArticleDetails(ArticleRequest.from(article), articleComments.stream()
+			.map(ArticleCommentRequest::from)
+			.collect(Collectors.toUnmodifiableList()));
+	}
+
+	public List<ArticleWithCommentCount> getArticlesWithCommentCount() {
+		return articleRepository.findAllArticleWithCommentCount()
+			.stream()
+			.collect(Collectors.toUnmodifiableList());
 	}
 
 	public void validateHasAuthorization(final Long articleId, final String userId) {
 		articleRepository.findById(articleId)
-			.filter(article -> article.getWriter().equals(userId))
+			.filter(article -> article.isSameWriter(userId))
 			.orElseThrow(NoAuthorizationException::new);
 	}
 
@@ -60,6 +71,15 @@ public class ArticleService {
 	public void deleteArticle(final Long articleId) {
 		articleRepository.findById(articleId)
 			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", articleId)));
-		articleRepository.deleteById(articleId);
+		articleRepository.isPossibleDeleteById(articleId)
+			.ifPresentOrElse(isExists -> {
+				if (isExists) {
+					articleRepository.deleteById(articleId);
+					return;
+				}
+				throw new InvalidOperationException(articleId);
+			}, () -> {
+				throw new InvalidOperationException(articleId);
+			});
 	}
 }
