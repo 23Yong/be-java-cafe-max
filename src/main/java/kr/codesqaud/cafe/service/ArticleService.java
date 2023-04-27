@@ -6,30 +6,32 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import kr.codesqaud.cafe.controller.dto.ArticleCommentRequest;
 import kr.codesqaud.cafe.controller.dto.ArticleDetails;
-import kr.codesqaud.cafe.controller.dto.ArticleRequest;
+import kr.codesqaud.cafe.controller.dto.ArticleResponse;
 import kr.codesqaud.cafe.controller.dto.ArticleWithCommentCount;
+import kr.codesqaud.cafe.controller.dto.CommentResponse;
 import kr.codesqaud.cafe.controller.dto.req.ArticleEditRequest;
 import kr.codesqaud.cafe.controller.dto.req.PostingRequest;
 import kr.codesqaud.cafe.domain.article.Article;
-import kr.codesqaud.cafe.domain.articlecomment.ArticleComment;
+import kr.codesqaud.cafe.domain.comment.Comment;
 import kr.codesqaud.cafe.exception.InvalidOperationException;
 import kr.codesqaud.cafe.exception.NoAuthorizationException;
 import kr.codesqaud.cafe.exception.NotFoundException;
-import kr.codesqaud.cafe.repository.ArticleCommentRepository;
 import kr.codesqaud.cafe.repository.ArticleRepository;
+import kr.codesqaud.cafe.repository.CommentRepository;
+import kr.codesqaud.cafe.service.paging.Page;
+import kr.codesqaud.cafe.service.paging.Pageable;
 
 @Transactional(readOnly = true)
 @Service
 public class ArticleService {
 
 	private final ArticleRepository articleRepository;
-	private final ArticleCommentRepository articleCommentRepository;
+	private final CommentRepository commentRepository;
 
-	public ArticleService(ArticleRepository articleRepository, ArticleCommentRepository articleCommentRepository) {
+	public ArticleService(ArticleRepository articleRepository, CommentRepository commentRepository) {
 		this.articleRepository = articleRepository;
-		this.articleCommentRepository = articleCommentRepository;
+		this.commentRepository = commentRepository;
 	}
 
 	@Transactional
@@ -40,16 +42,18 @@ public class ArticleService {
 	public ArticleDetails getArticleDetails(final Long id) {
 		Article article = articleRepository.findById(id)
 			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", id)));
-		List<ArticleComment> articleComments = articleCommentRepository.findAllByArticleId(id);
-		return new ArticleDetails(ArticleRequest.from(article), articleComments.stream()
-			.map(ArticleCommentRequest::from)
+		List<Comment> comments = commentRepository.findAllByArticleId(id);
+		return new ArticleDetails(ArticleResponse.from(article), comments.stream()
+			.map(CommentResponse::from)
 			.collect(Collectors.toUnmodifiableList()));
 	}
 
-	public List<ArticleWithCommentCount> getArticlesWithCommentCount() {
-		return articleRepository.findAllArticleWithCommentCount()
+	public Page<ArticleWithCommentCount> getArticlesWithCommentCount(final Pageable pageable) {
+		List<ArticleWithCommentCount> articles = articleRepository.findAllArticleWithCommentCount(pageable)
 			.stream()
 			.collect(Collectors.toUnmodifiableList());
+		Long totalCount = articleRepository.countAllArticles();
+		return new Page<>(articles, totalCount);
 	}
 
 	public void validateHasAuthorization(final Long articleId, final String userId) {
@@ -71,15 +75,10 @@ public class ArticleService {
 	public void deleteArticle(final Long articleId) {
 		articleRepository.findById(articleId)
 			.orElseThrow(() -> new NotFoundException(String.format("%d번 게시글을 찾을 수 없습니다.", articleId)));
-		articleRepository.isPossibleDeleteById(articleId)
-			.ifPresentOrElse(isExists -> {
-				if (isExists) {
-					articleRepository.deleteById(articleId);
-					return;
-				}
-				throw new InvalidOperationException(articleId);
-			}, () -> {
-				throw new InvalidOperationException(articleId);
-			});
+		if (articleRepository.isPossibleDeleteById(articleId)) {
+			articleRepository.deleteById(articleId);
+			return;
+		}
+		throw new InvalidOperationException(articleId);
 	}
 }

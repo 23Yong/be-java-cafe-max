@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import kr.codesqaud.cafe.controller.dto.ArticleWithCommentCount;
 import kr.codesqaud.cafe.domain.article.Article;
+import kr.codesqaud.cafe.service.paging.Pageable;
 
 public interface ArticleRepository {
 
@@ -12,7 +13,7 @@ public interface ArticleRepository {
 
 	List<Article> findAll();
 
-	List<ArticleWithCommentCount> findAllArticleWithCommentCount();
+	List<ArticleWithCommentCount> findAllArticleWithCommentCount(Pageable pageable);
 
 	Optional<Article> findById(Long id);
 
@@ -20,5 +21,7 @@ public interface ArticleRepository {
 
 	void deleteById(Long id);
 
-	Optional<Boolean> isPossibleDeleteById(Long id);
+	boolean isPossibleDeleteById(Long id);
+
+	Long countAllArticles();
 }

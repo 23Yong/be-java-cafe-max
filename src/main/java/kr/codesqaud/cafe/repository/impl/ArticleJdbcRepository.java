@@ -16,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import kr.codesqaud.cafe.controller.dto.ArticleWithCommentCount;
 import kr.codesqaud.cafe.domain.article.Article;
 import kr.codesqaud.cafe.repository.ArticleRepository;
+import kr.codesqaud.cafe.service.paging.Pageable;
 
 @Repository
 public class ArticleJdbcRepository implements ArticleRepository {
@@ -49,21 +50,22 @@ public class ArticleJdbcRepository implements ArticleRepository {
 	}
 
 	@Override
-	public List<ArticleWithCommentCount> findAllArticleWithCommentCount() {
+	public List<ArticleWithCommentCount> findAllArticleWithCommentCount(final Pageable pageable) {
 		return jdbcTemplate.query(
-			"SELECT a.id, a.writer, a.title, a.content, a.created_at, COUNT(ac.id) AS article_comment_count "
+			"SELECT a.id, a.writer, a.title, a.content, a.created_at, COUNT(ac.id) AS comment_count "
 				+ "FROM article AS a "
-				+ "LEFT JOIN article_comment AS ac ON a.id = ac.article_id AND ac.is_deleted = FALSE "
+				+ "LEFT JOIN comment AS ac ON a.id = ac.article_id AND ac.is_deleted = FALSE "
 				+ "WHERE a.is_deleted = FALSE "
-				+ "GROUP BY a.id, a.writer, a.title, a.content, a.created_at",
+				+ "GROUP BY a.id, a.writer, a.title, a.content, a.created_at "
+				+ "ORDER BY a.created_at DESC "
+				+ "LIMIT 15 OFFSET :offset",
+			Map.of("offset", pageable.getOffset()),
 			(rs, rowNum) -> new ArticleWithCommentCount(rs.getLong("id"),
-														rs.getString("writer"),
-														rs.getString("title"),
-														rs.getString("content"),
-														rs.getTimestamp("created_at")
-															.toLocalDateTime(),
-														rs.getLong(
-															"article_comment_count")));
+			                                            rs.getString("writer"),
+			                                            rs.getString("title"),
+			                                            rs.getString("content"),
+			                                            rs.getTimestamp("created_at").toLocalDateTime(),
+			                                            rs.getLong("comment_count")));
 	}
 
 	@Override
@@ -81,31 +83,40 @@ public class ArticleJdbcRepository implements ArticleRepository {
 	@Override
 	public void update(final Article article) {
 		Map<String, Object> params = Map.of("title", article.getTitle(),
-											"content", article.getContent(),
-											"id", article.getId());
+		                                    "content", article.getContent(),
+		                                    "id", article.getId());
 		jdbcTemplate.update("UPDATE article SET title=:title, content=:content WHERE id=:id", params);
 	}
 
 	@Override
 	public void deleteById(final Long id) {
 		jdbcTemplate.update("UPDATE article AS a "
-								+ "LEFT JOIN article_comment AS ac ON a.id = ac.article_id "
-								+ "SET a.is_deleted = TRUE, ac.is_deleted = TRUE "
-								+ "WHERE a.id = :id",
-							Map.of("id", id));
+			                    + "LEFT JOIN comment AS ac ON a.id = ac.article_id "
+			                    + "SET a.is_deleted = TRUE, ac.is_deleted = TRUE "
+			                    + "WHERE a.id = :id",
+		                    Map.of("id", id));
 	}
 
 	@Override
-	public Optional<Boolean> isPossibleDeleteById(final Long id) {
+	public boolean isPossibleDeleteById(final Long id) {
 		try {
-			return Optional.of(Boolean.FALSE.equals(
+			return Boolean.FALSE.equals(
 				jdbcTemplate.queryForObject("SELECT EXISTS ("    // 댓글 작성자 중 게시글 작성자와 일치하지 않은 사용자가 존재할 경우 TRUE 반환
-												+ "SELECT a.id FROM article AS a "
-												+ "LEFT JOIN article_comment AS ac ON a.id = ac.article_id AND ac.is_deleted = FALSE "
-												+ "WHERE a.id = :id AND a.writer NOT LIKE ac.writer)",
-											Map.of("id", id), Boolean.class)));
+					                            + "SELECT a.id FROM article AS a "
+					                            + "LEFT JOIN comment AS ac ON a.id = ac.article_id AND ac.is_deleted = FALSE "
+					                            + "WHERE a.id = :id AND a.writer NOT LIKE ac.writer)",
+				                            Map.of("id", id), Boolean.class));
 		} catch (EmptyResultDataAccessException e) {
-			return Optional.empty();
+			return false;
+		}
+	}
+
+	@Override
+	public Long countAllArticles() {
+		try {
+			return jdbcTemplate.queryForObject("SELECT COUNT(id) FROM article", Map.of(), Long.class);
+		} catch (EmptyResultDataAccessException e) {
+			return 0L;
 		}
 	}
 }

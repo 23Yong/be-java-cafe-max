@@ -3,9 +3,9 @@ package kr.codesqaud.cafe.controller.dto;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import kr.codesqaud.cafe.domain.articlecomment.ArticleComment;
+import kr.codesqaud.cafe.domain.comment.Comment;
 
-public class ArticleCommentRequest {
+public class CommentResponse {
 
 	private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -14,19 +14,19 @@ public class ArticleCommentRequest {
 	private final String content;
 	private final String createdAt;
 
-	public ArticleCommentRequest(Long id, String writer, String content, LocalDateTime createdAt) {
+	public CommentResponse(Long id, String writer, String content, LocalDateTime createdAt) {
 		this.id = id;
 		this.writer = writer;
 		this.content = content;
 		this.createdAt = DATE_TIME_FORMATTER.format(createdAt);
 	}
 
-	public static ArticleCommentRequest from(final ArticleComment articleComment) {
-		return new ArticleCommentRequest(
-			articleComment.getId(),
-			articleComment.getWriter(),
-			articleComment.getContent(),
-			articleComment.getCreatedAt()
+	public static CommentResponse from(final Comment comment) {
+		return new CommentResponse(
+			comment.getId(),
+			comment.getWriter(),
+			comment.getContent(),
+			comment.getCreatedAt()
 		);
 	}
 }

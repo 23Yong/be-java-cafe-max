@@ -4,19 +4,19 @@ import java.util.List;
 
 public class ArticleDetails {
 
-	private final ArticleRequest articleRequest;
-	private final List<ArticleCommentRequest> articleCommentRequest;
+	private final ArticleResponse articleResponse;
+	private final List<CommentResponse> commentResponse;
 
-	public ArticleDetails(ArticleRequest articleRequest, List<ArticleCommentRequest> articleCommentRequest) {
-		this.articleRequest = articleRequest;
-		this.articleCommentRequest = articleCommentRequest;
+	public ArticleDetails(ArticleResponse articleResponse, List<CommentResponse> commentResponse) {
+		this.articleResponse = articleResponse;
+		this.commentResponse = commentResponse;
 	}
 
-	public ArticleRequest getArticleRequest() {
-		return articleRequest;
+	public ArticleResponse getArticleResponse() {
+		return articleResponse;
 	}
 
-	public List<ArticleCommentRequest> getArticleCommentRequest() {
-		return articleCommentRequest;
+	public List<CommentResponse> getCommentResponse() {
+		return commentResponse;
 	}
 }

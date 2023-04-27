@@ -26,12 +26,13 @@ import kr.codesqaud.cafe.controller.dto.ArticleDetails;
 import kr.codesqaud.cafe.controller.dto.req.ArticleEditRequest;
 import kr.codesqaud.cafe.controller.dto.req.PostingRequest;
 import kr.codesqaud.cafe.domain.article.Article;
-import kr.codesqaud.cafe.domain.articlecomment.ArticleComment;
+import kr.codesqaud.cafe.domain.comment.Comment;
 import kr.codesqaud.cafe.exception.InvalidOperationException;
 import kr.codesqaud.cafe.exception.NoAuthorizationException;
 import kr.codesqaud.cafe.exception.NotFoundException;
-import kr.codesqaud.cafe.repository.ArticleCommentRepository;
 import kr.codesqaud.cafe.repository.ArticleRepository;
+import kr.codesqaud.cafe.repository.CommentRepository;
+import kr.codesqaud.cafe.service.paging.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ArticleServiceTest {
@@ -40,7 +41,7 @@ class ArticleServiceTest {
 	private ArticleRepository articleRepository;
 
 	@Mock
-	private ArticleCommentRepository articleCommentRepository;
+	private CommentRepository commentRepository;
 
 	@InjectMocks
 	private ArticleService articleService;
@@ -84,13 +85,13 @@ class ArticleServiceTest {
 		@Test
 		void givenNothing_whenFindAll_thenReturnsArticleList() {
 			// given
-			given(articleRepository.findAllArticleWithCommentCount()).willReturn(List.of());
+			given(articleRepository.findAllArticleWithCommentCount(any(Pageable.class))).willReturn(List.of());
 
 			// when & then
 			assertAll(
-				() -> assertThatCode(() -> articleService.getArticlesWithCommentCount())
+				() -> assertThatCode(() -> articleService.getArticlesWithCommentCount(new Pageable(1)))
 					.doesNotThrowAnyException(),
-				() -> then(articleRepository).should().findAllArticleWithCommentCount()
+				() -> then(articleRepository).should().findAllArticleWithCommentCount(any(Pageable.class))
 			);
 		}
 	}
@@ -102,11 +103,11 @@ class ArticleServiceTest {
 		@DisplayName("게시글 아이디가 주어지면 게시글 정보와 댓글 리스트가 포함된 정보를 반환한다.")
 		@ArgumentsSource(ArticleComments.class)
 		@ParameterizedTest
-		void givenArticleId_whenFindArticleDetails_thenReturnsArticleDetails(List<ArticleComment> articleComments,
-																			 int size) {
+		void givenArticleId_whenFindArticleDetails_thenReturnsArticleDetails(List<Comment> comments,
+		                                                                     int size) {
 			// given
 			given(articleRepository.findById(anyLong())).willReturn(Optional.of(createArticle()));
-			given(articleCommentRepository.findAllByArticleId(anyLong())).willReturn(articleComments);
+			given(commentRepository.findAllByArticleId(anyLong())).willReturn(comments);
 
 			// when
 			ArticleDetails articleDetails = articleService.getArticleDetails(1L);
@@ -114,9 +115,9 @@ class ArticleServiceTest {
 			// then
 			assertAll(
 				() -> assertThat(articleDetails).isNotNull(),
-				() -> assertThat(articleDetails.getArticleCommentRequest()).hasSize(size),
+				() -> assertThat(articleDetails.getCommentResponse()).hasSize(size),
 				() -> then(articleRepository).should().findById(1L),
-				() -> then(articleCommentRepository).should().findAllByArticleId(1L)
+				() -> then(commentRepository).should().findAllByArticleId(1L)
 			);
 		}
 
@@ -130,7 +131,7 @@ class ArticleServiceTest {
 			assertAll(
 				() -> assertThatThrownBy(() -> articleService.getArticleDetails(1L)),
 				() -> then(articleRepository).should().findById(1L),
-				() -> then(articleCommentRepository).should(never()).findAllByArticleId(anyLong())
+				() -> then(commentRepository).should(never()).findAllByArticleId(anyLong())
 			);
 		}
 	}
@@ -218,7 +219,7 @@ class ArticleServiceTest {
 		void givenNothing_whenDeletesArticle_thenDoNothing() {
 			// given
 			given(articleRepository.findById(anyLong())).willReturn(Optional.of(createArticle()));
-			given(articleRepository.isPossibleDeleteById(anyLong())).willReturn(Optional.of(Boolean.TRUE));
+			given(articleRepository.isPossibleDeleteById(anyLong())).willReturn(true);
 			willDoNothing().given(articleRepository).deleteById(anyLong());
 
 			// when & then
@@ -250,7 +251,7 @@ class ArticleServiceTest {
 		void givenContainsCommentsThatNotEqualsWriter_whenDeleteArticle_thenThrowsException() {
 			// given
 			given(articleRepository.findById(anyLong())).willReturn(Optional.of(createArticle()));
-			given(articleRepository.isPossibleDeleteById(anyLong())).willReturn(Optional.of(Boolean.FALSE));
+			given(articleRepository.isPossibleDeleteById(anyLong())).willReturn(false);
 
 			// when & then
 			assertAll(

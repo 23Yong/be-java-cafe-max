@@ -15,19 +15,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import kr.codesqaud.cafe.controller.dto.req.ReplyRequest;
-import kr.codesqaud.cafe.domain.articlecomment.ArticleComment;
+import kr.codesqaud.cafe.controller.dto.req.CommentRequest;
+import kr.codesqaud.cafe.domain.comment.Comment;
 import kr.codesqaud.cafe.exception.NoAuthorizationException;
-import kr.codesqaud.cafe.repository.ArticleCommentRepository;
+import kr.codesqaud.cafe.repository.CommentRepository;
 
 @ExtendWith(MockitoExtension.class)
-class ArticleCommentServiceTest {
+class CommentServiceTest {
 
 	@Mock
-	private ArticleCommentRepository articleCommentRepository;
+	private CommentRepository commentRepository;
 
 	@InjectMocks
-	private ArticleCommentService articleCommentService;
+	private CommentService commentService;
 
 	@DisplayName("댓글 등록할 때")
 	@Nested
@@ -37,14 +37,14 @@ class ArticleCommentServiceTest {
 		@Test
 		void givenReplyRequest_whenReply_thenReturnsNothing() {
 			// given
-			ReplyRequest replyRequest = new ReplyRequest(1L, "댓글 등록 테스트~");
-			given(articleCommentRepository.save(any(ArticleComment.class))).willReturn(1L);
+			CommentRequest commentRequest = new CommentRequest(1L, "댓글 등록 테스트~");
+			given(commentRepository.save(any(Comment.class))).willReturn(Optional.of(createArticleComment()));
 
 			// when
-			articleCommentService.reply(replyRequest, "bruni");
+			commentService.reply(commentRequest, "bruni");
 
 			// then
-			then(articleCommentRepository).should().save(any(ArticleComment.class));
+			then(commentRepository).should().save(any(Comment.class));
 		}
 	}
 
@@ -56,26 +56,26 @@ class ArticleCommentServiceTest {
 		@Test
 		void givenArticleCommentIdAndUserId_whenValidateHasAuthorization_thenDoNothing() {
 			// given
-			given(articleCommentRepository.findById(anyLong())).willReturn(Optional.of(createArticleComment()));
+			given(commentRepository.findById(anyLong())).willReturn(Optional.of(createArticleComment()));
 
-			// when & then
-			assertAll(
-				() -> articleCommentService.validateHasAuthorization(1L, "bruni"),
-				() -> then(articleCommentRepository).should().findById(1L)
-			);
+			// when
+			commentService.checkDeleteCommentPermission(1L, "bruni");
+
+			// then
+			then(commentRepository).should().findById(1L);
 		}
 
 		@DisplayName("댓글의 작성자와 현재 로그인한 사용자가 일치하지 않으면 예외를 던진다.")
 		@Test
 		void givenNotEqualsCommentWriterAndUserId_whenValidateHasAuthorization_thenThrowsException() {
 			// given
-			given(articleCommentRepository.findById(anyLong())).willReturn(Optional.of(createArticleComment()));
+			given(commentRepository.findById(anyLong())).willReturn(Optional.of(createArticleComment()));
 
 			// when & then
 			assertAll(
-				() -> assertThatThrownBy(() -> articleCommentService.validateHasAuthorization(1L, "unknown"))
+				() -> assertThatThrownBy(() -> commentService.checkDeleteCommentPermission(1L, "unknown"))
 					.isInstanceOf(NoAuthorizationException.class),
-				() -> then(articleCommentRepository).should().findById(1L)
+				() -> then(commentRepository).should().findById(1L)
 			);
 		}
 
@@ -87,13 +87,13 @@ class ArticleCommentServiceTest {
 			@Test
 			void givenArticleCommentId_whenDeletesArticleComment_thenDoNothing() {
 				// given
-				willDoNothing().given(articleCommentRepository).deleteById(anyLong());
+				willDoNothing().given(commentRepository).deleteById(anyLong());
 
 				// when
 				assertAll(
-					() -> assertThatCode(() -> articleCommentService.deleteById(1L))
+					() -> assertThatCode(() -> commentService.deleteById(1L))
 						.doesNotThrowAnyException(),
-					() -> then(articleCommentRepository).should().deleteById(1L)
+					() -> then(commentRepository).should().deleteById(1L)
 				);
 			}
 		}
